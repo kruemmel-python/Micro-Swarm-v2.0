@@ -202,7 +202,7 @@ format csv
 sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
 ```
 
-SQL-Light (Shell):
+SQL (Shell):
 ```
 sql SELECT AlbumId, COUNT(*) AS C FROM Track WHERE AlbumId BETWEEN 1 AND 5 GROUP BY AlbumId HAVING C > 5 ORDER BY C DESC
 sql SELECT Name FROM Artist WHERE Name LIKE 'A%' ORDER BY ArtistId
