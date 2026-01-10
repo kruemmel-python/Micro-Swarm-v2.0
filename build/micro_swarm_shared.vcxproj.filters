@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\micro_swarm_api.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\agent.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\db_engine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\dna_memory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\environment.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\fields.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\io.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\mycel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\compute\opencl_runtime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\compute\opencl_loader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\micro_swarm_api.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\agent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\db_engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\dna_memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\environment.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\fields.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\io.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\mycel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\params.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\sim\rng.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\compute\opencl_runtime.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\src\compute\opencl_loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\ralfk\Downloads\superpromt\micro_DB\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{778CDBC7-A709-3C2B-BD98-6675D5838B41}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{5C1448BB-0897-3997-80D0-3DC1BF4E0CB6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

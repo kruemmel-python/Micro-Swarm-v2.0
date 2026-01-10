@@ -1,0 +1,4 @@
+C:/Users/ralfk/Downloads/superpromt/micro_DB/build/CMakeFiles/micro_swarm.dir
+C:/Users/ralfk/Downloads/superpromt/micro_DB/build/CMakeFiles/micro_swarm_shared.dir
+C:/Users/ralfk/Downloads/superpromt/micro_DB/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/ralfk/Downloads/superpromt/micro_DB/build/CMakeFiles/ZERO_CHECK.dir

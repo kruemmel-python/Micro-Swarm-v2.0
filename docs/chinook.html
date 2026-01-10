@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Konvertiertes Dokument</title>
+  
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Fira+Code&display=swap');
+  
+  :root {
+    --bg-color: #1a202c;
+    --text-color: #cbd5e0;
+    --heading-color: #cbd5e0;
+    --border-color: #4a5568;
+    --link-color: #63b3ed;
+    --link-hover-color: #90cdf4;
+    --code-bg-color: rgba(0, 0, 0, 0.2);
+    --blockquote-color: #a0aec0;
+  }
+
+  body { 
+    background-color: var(--bg-color); 
+    color: var(--text-color);
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    margin: 0;
+    padding: 2rem;
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+  }
+  main {
+    width: 100%;
+    max-width: 800px; /* Limits content width for readability */
+  }
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--heading-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.3em;
+    margin-top: 1.5em;
+    margin-bottom: 1em;
+  }
+  a {
+    color: var(--link-color);
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+  }
+  img { 
+    max-width: 100%; 
+    height: auto; 
+    display: block; 
+    margin: 1.5rem auto; 
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    background-color: var(--code-bg-color); /* BG for transparent images */
+  }
+  p {
+    margin-bottom: 1em;
+  }
+  pre {
+    background-color: var(--code-bg-color);
+    color: var(--heading-color);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+  }
+  code { 
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    background-color: var(--code-bg-color);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  pre > code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 1em;
+  }
+  table { 
+    border-collapse: collapse; 
+    width: 100%; 
+    margin: 1.5rem 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td { 
+    border: 1px solid var(--border-color);
+    padding: 0.75rem;
+    text-align: start;
+  }
+  th {
+    background-color: var(--code-bg-color);
+    color: var(--heading-color);
+    font-weight: bold;
+  }
+  blockquote {
+    border-inline-start: 4px solid var(--link-color);
+    padding-inline-start: 1rem;
+    margin-inline-start: 0;
+    margin-right: 0;
+    margin-block: 1.5em;
+    color: var(--blockquote-color);
+    font-style: italic;
+  }
+  ul, ol {
+    padding-inline-start: 2rem;
+  }
+  li {
+    margin-bottom: 0.5em;
+  }
+</style>
+
+</head>
+<body>
+  <main>
+    <h1>Chinook: MycoDB Beispiele (Micro-Swarm)</h1>
+<p>Diese Datei zeigt praxisnahe Beispiele fuer die Chinook-Datenbank mit dem interaktiven <code>db_shell</code> Modus.
+Alle Beispiele sind kompatibel mit dem aktuellen MycoDB-Parser und der Shell-Syntax.</p>
+<p>Ausgangspunkt:</p>
+<pre><code class="language-powershell">.\micro_swarm.exe --mode db_shell --db chinook_optimized.myco --db-radius 15
+</code></pre>
+<h2>Shell-Kommandos (Meta)</h2>
+<pre><code>help
+focus
+radius 25
+unfocus
+tables
+stats
+schema Track
+sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
+exit
+</code></pre>
+<p>Kurzerklaerung:</p>
+<ul>
+<li><code>help</code>: zeigt alle Befehle</li>
+<li><code>focus</code>: zeigt aktuellen Fokuspunkt (falls gesetzt)</li>
+<li><code>radius N</code>: setzt den Suchradius fuer alle folgenden Abfragen</li>
+<li><code>unfocus</code>: Fokus entfernen</li>
+<li><code>tables</code>: Tabellenliste</li>
+<li><code>stats</code>: Payload-Counts pro Tabelle</li>
+<li><code>schema &lt;table&gt;</code>: Spaltenliste</li>
+<li><code>sql &lt;statement&gt;</code>: SQL-Light Query</li>
+<li><code>exit</code>: Shell beenden</li>
+</ul>
+<h2>1) Primary-Key Queries (direkte ID)</h2>
+<pre><code>Album 1
+Artist 5
+Track 12
+Genre 3
+MediaType 2
+Employee 1
+Invoice 10
+InvoiceLine 20
+Playlist 4
+PlaylistTrack 15
+</code></pre>
+<p>Bedeutung: Zeigt jeweils den Datensatz mit der ID.</p>
+<h2>2) Foreign-Key Queries (Relationen)</h2>
+<pre><code>Album ArtistId=1
+Track AlbumId=1
+Track GenreId=1
+Track MediaTypeId=1
+InvoiceLine InvoiceId=1
+Invoice CustomerId=1
+PlaylistTrack PlaylistId=1
+</code></pre>
+<p>Bedeutung: Zeigt alle Datensaetze mit einem Foreign-Key-Wert.</p>
+<h2>3) Navigation per Fokus (goto)</h2>
+<p>Beispiel: zuerst Album 1 finden, dann den Fokus setzen und lokal suchen.</p>
+<pre><code>Album 1
+goto 1
+Track AlbumId=1
+</code></pre>
+<p>Hinweis:</p>
+<ul>
+<li><code>goto &lt;payload_id&gt;</code> nutzt die Payload-ID (nicht zwingend die SQL-ID).</li>
+<li>Die Payload-ID wird in jeder Trefferzeile als <code>id=&lt;...&gt;</code> ausgegeben.</li>
+</ul>
+<h2>4) Radius-gesteuerte Lokalsuche</h2>
+<p>Groesserer Radius fuer groessere Cluster:</p>
+<pre><code>radius 40
+Track AlbumId=1
+</code></pre>
+<p>Kleiner Radius fuer sehr schnelle Antwort:</p>
+<pre><code>radius 5
+Track AlbumId=1
+</code></pre>
+<h2>4b) Spalten filtern (show)</h2>
+<pre><code>Track AlbumId=1 show TrackId,Name,Composer
+</code></pre>
+<h2>4c) Globale Spaltenabfrage (ohne Tabellenname)</h2>
+<pre><code>TrackId=13
+AlbumId=1
+</code></pre>
+<h2>4d) SQL-Light Beispiele</h2>
+<pre><code>sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
+sql SELECT AlbumId, COUNT(*) AS C FROM Track GROUP BY AlbumId HAVING C &gt; 5 ORDER BY C DESC LIMIT 10
+sql SELECT t.Name, a.Title FROM Track t JOIN Album a ON t.AlbumId=a.AlbumId WHERE t.TrackId=13
+sql SELECT Name FROM Artist WHERE Name LIKE 'A%' ORDER BY ArtistId
+sql SELECT TrackId FROM Track WHERE AlbumId=1 UNION SELECT TrackId FROM Track WHERE AlbumId=2
+sql SELECT TrackId FROM Track WHERE AlbumId=1 UNION ALL SELECT TrackId FROM Track WHERE AlbumId=1
+sql SELECT t.Name, a.Title FROM Track t RIGHT JOIN Album a ON t.AlbumId=a.AlbumId WHERE a.AlbumId=1
+sql SELECT * FROM Track CROSS JOIN MediaType LIMIT 3
+sql SELECT Name FROM Artist WHERE Name REGEXP '^A'
+sql SELECT Name FROM Artist WHERE ArtistId IN (SELECT ArtistId FROM Album WHERE AlbumId=1)
+sql SELECT Name FROM Artist WHERE EXISTS (SELECT AlbumId FROM Album WHERE AlbumId=1)
+sql SELECT Name FROM Artist a WHERE EXISTS (SELECT AlbumId FROM Album WHERE Album.ArtistId=a.ArtistId)
+sql SELECT LOWER(Name) AS n FROM Artist ORDER BY n LIMIT 5
+sql SELECT TrackId, Name FROM Track ORDER BY 1 LIMIT 5
+sql SELECT Name FROM Artist WHERE Name IS NOT NULL LIMIT 3
+sql SELECT * FROM (SELECT ArtistId, Name FROM Artist) a WHERE a.ArtistId=1
+sql WITH top_albums AS (SELECT AlbumId FROM Track GROUP BY AlbumId HAVING COUNT(*) &gt; 5) SELECT AlbumId FROM top_albums ORDER BY AlbumId
+</code></pre>
+<h2>5) Kombi-Workflow (typisch)</h2>
+<pre><code>Artist 1
+Album ArtistId=1
+goto 1
+Track AlbumId=1
+radius 8
+Track AlbumId=1
+</code></pre>
+<h2>6) Fallback ohne Spaltenliste (wenn SQL-Dump ohne Column-Names)</h2>
+<p>Wenn der Dump keine Spaltenliste enthaelt, sind Spalten intern <code>col0</code>, <code>col1</code>, …
+Dann funktioniert:</p>
+<pre><code>Album 1
+Track col2=1
+</code></pre>
+<p>(Die genaue Spaltenposition haengt vom Dump ab.)</p>
+<hr>
+<p>Hinweis fuer Chinook:</p>
+<ul>
+<li>Tabellen sind kleingeschrieben im Dump, Micro-Swarm ist case-insensitive.</li>
+<li><code>PlaylistTrack</code> ist die Join-Tabelle zwischen Playlist und Track.</li>
+<li><code>InvoiceLine</code> referenziert <code>InvoiceId</code>.</li>
+<li>Wenn Spaltennamen fehlen, ingest erneut mit Dump inkl. <code>CREATE TABLE</code>.</li>
+</ul>
+<p>Ende.</p>
+
+  </main>
+</body>
+</html>

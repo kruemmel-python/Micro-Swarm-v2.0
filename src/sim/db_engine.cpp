@@ -1,0 +1,1176 @@
+#include "db_engine.h"
+
+#include "params.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <fstream>
+#include <sstream>
+#include <string>
+
+namespace {
+std::string to_lower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return s;
+}
+
+std::string trim(const std::string &s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) {
+        start++;
+    }
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) {
+        end--;
+    }
+    return s.substr(start, end - start);
+}
+
+bool parse_int_value(const std::string &s, int &out) {
+    try {
+        size_t idx = 0;
+        int v = std::stoi(s, &idx);
+        if (idx == 0) {
+            return false;
+        }
+        out = v;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+std::string strip_quotes(const std::string &s) {
+    if (s.size() >= 2) {
+        char a = s.front();
+        char b = s.back();
+        if ((a == '\'' && b == '\'') || (a == '"' && b == '"')) {
+            return s.substr(1, s.size() - 2);
+        }
+    }
+    return s;
+}
+
+bool ieq_prefix(const std::string &s, const std::string &prefix) {
+    if (s.size() < prefix.size()) return false;
+    for (size_t i = 0; i < prefix.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(s[i])) != std::tolower(static_cast<unsigned char>(prefix[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ieq(const std::string &a, const std::string &b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string escape_string(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+        switch (c) {
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default: out.push_back(c); break;
+        }
+    }
+    return out;
+}
+
+std::string unescape_string(const std::string &s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        char c = s[i];
+        if (c == '\\' && i + 1 < s.size()) {
+            char n = s[i + 1];
+            switch (n) {
+                case 'n': out.push_back('\n'); break;
+                case 'r': out.push_back('\r'); break;
+                case 't': out.push_back('\t'); break;
+                case '\\': out.push_back('\\'); break;
+                default: out.push_back(n); break;
+            }
+            i++;
+        } else {
+            out.push_back(c);
+        }
+    }
+    return out;
+}
+
+bool ends_with_id(const std::string &name) {
+    if (name.size() < 2) return false;
+    std::string lower = to_lower(name);
+    if (lower == "id") return false;
+    if (lower.size() >= 3 && lower.substr(lower.size() - 3) == "_id") return true;
+    if (lower.size() >= 2 && lower.substr(lower.size() - 2) == "id") return true;
+    return false;
+}
+
+std::string fk_table_from_column(const std::string &name) {
+    std::string lower = to_lower(name);
+    if (lower.size() >= 3 && lower.substr(lower.size() - 3) == "_id") {
+        return name.substr(0, name.size() - 3);
+    }
+    if (lower.size() >= 2 && lower.substr(lower.size() - 2) == "id") {
+        return name.substr(0, name.size() - 2);
+    }
+    return name;
+}
+
+struct SqlInsert {
+    std::string table;
+    std::vector<std::string> columns;
+    std::vector<std::vector<std::string>> rows;
+};
+
+bool parse_identifier(const std::string &s, size_t &i, std::string &out) {
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+    if (i >= s.size()) return false;
+    char quote = 0;
+    if (s[i] == '`' || s[i] == '"') {
+        quote = s[i++];
+        size_t start = i;
+        while (i < s.size() && s[i] != quote) i++;
+        if (i >= s.size()) return false;
+        out = s.substr(start, i - start);
+        i++;
+        return true;
+    }
+    size_t start = i;
+    while (i < s.size()) {
+        char c = s[i];
+        if (std::isspace(static_cast<unsigned char>(c)) || c == '(' || c == ',' || c == ')') break;
+        i++;
+    }
+    if (i <= start) return false;
+    out = s.substr(start, i - start);
+    size_t dot = out.find_last_of('.');
+    if (dot != std::string::npos && dot + 1 < out.size()) {
+        out = out.substr(dot + 1);
+    }
+    return true;
+}
+
+bool parse_columns_list(const std::string &s, size_t &i, std::vector<std::string> &cols) {
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+    if (i >= s.size() || s[i] != '(') return false;
+    i++;
+    cols.clear();
+    while (i < s.size()) {
+        while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+        if (i < s.size() && s[i] == ')') {
+            i++;
+            return true;
+        }
+        std::string col;
+        if (!parse_identifier(s, i, col)) return false;
+        cols.push_back(col);
+        while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+        if (i < s.size() && s[i] == ',') {
+            i++;
+        }
+    }
+    return false;
+}
+
+bool parse_value(const std::string &s, size_t &i, std::string &out) {
+    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+    if (i >= s.size()) return false;
+    if (s[i] == '\'' || s[i] == '"') {
+        char quote = s[i++];
+        std::string val;
+        while (i < s.size()) {
+            char c = s[i++];
+            if (c == quote) {
+                if (i < s.size() && s[i] == quote) {
+                    val.push_back(quote);
+                    i++;
+                    continue;
+                }
+                break;
+            }
+            val.push_back(c);
+        }
+        out = val;
+        return true;
+    }
+    size_t start = i;
+    while (i < s.size()) {
+        char c = s[i];
+        if (c == ',' || c == ')') break;
+        i++;
+    }
+    out = trim(s.substr(start, i - start));
+    return true;
+}
+
+bool parse_values_list(const std::string &s, size_t &i, std::vector<std::vector<std::string>> &rows) {
+    rows.clear();
+    while (i < s.size()) {
+        while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+        if (i >= s.size()) return false;
+        if (s[i] == ';') return true;
+        if (s[i] != '(') {
+            i++;
+            continue;
+        }
+        i++;
+        std::vector<std::string> row;
+        while (i < s.size()) {
+            std::string value;
+            if (!parse_value(s, i, value)) return false;
+            row.push_back(value);
+            while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+            if (i < s.size() && s[i] == ',') {
+                i++;
+                continue;
+            }
+            if (i < s.size() && s[i] == ')') {
+                i++;
+                break;
+            }
+        }
+        if (!row.empty()) {
+            rows.push_back(std::move(row));
+        }
+        while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) i++;
+        if (i < s.size() && s[i] == ',') {
+            i++;
+            continue;
+        }
+        if (i < s.size() && s[i] == ';') {
+            return true;
+        }
+    }
+    return true;
+}
+
+bool parse_insert_statement(const std::string &stmt, SqlInsert &out) {
+    size_t i = 0;
+    while (i < stmt.size() && std::isspace(static_cast<unsigned char>(stmt[i]))) i++;
+    if (!ieq_prefix(stmt.substr(i), "insert into")) {
+        return false;
+    }
+    i += 11;
+    std::string table;
+    if (!parse_identifier(stmt, i, table)) {
+        return false;
+    }
+    out.table = table;
+    size_t save = i;
+    if (!parse_columns_list(stmt, i, out.columns)) {
+        out.columns.clear();
+        i = save;
+    }
+    while (i < stmt.size() && std::isspace(static_cast<unsigned char>(stmt[i]))) i++;
+    if (!ieq_prefix(stmt.substr(i), "values")) {
+        return false;
+    }
+    i += 6;
+    return parse_values_list(stmt, i, out.rows);
+}
+
+bool parse_create_table_statement(const std::string &stmt, std::string &table, std::vector<std::string> &columns) {
+    size_t i = 0;
+    while (i < stmt.size() && std::isspace(static_cast<unsigned char>(stmt[i]))) i++;
+    if (!ieq_prefix(stmt.substr(i), "create table")) {
+        return false;
+    }
+    i += 12;
+    {
+        size_t tmp = i;
+        while (tmp < stmt.size() && std::isspace(static_cast<unsigned char>(stmt[tmp]))) tmp++;
+        std::string rest = to_lower(stmt.substr(tmp));
+        if (ieq_prefix(rest, "if not exists")) {
+            tmp += 13;
+            i = tmp;
+        }
+    }
+    if (!parse_identifier(stmt, i, table)) {
+        return false;
+    }
+    size_t open = stmt.find('(', i);
+    size_t close = stmt.rfind(')');
+    if (open == std::string::npos || close == std::string::npos || close <= open) {
+        return false;
+    }
+    std::string inner = stmt.substr(open + 1, close - open - 1);
+    columns.clear();
+
+    std::vector<std::string> parts;
+    std::string current;
+    int depth = 0;
+    bool in_string = false;
+    char string_quote = 0;
+    for (size_t p = 0; p < inner.size(); ++p) {
+        char c = inner[p];
+        if ((c == '\'' || c == '"') && (!in_string || c == string_quote)) {
+            if (in_string && c == string_quote) {
+                in_string = false;
+            } else if (!in_string) {
+                in_string = true;
+                string_quote = c;
+            }
+        }
+        if (!in_string) {
+            if (c == '(') depth++;
+            if (c == ')') depth = std::max(0, depth - 1);
+            if (c == ',' && depth == 0) {
+                parts.push_back(current);
+                current.clear();
+                continue;
+            }
+        }
+        current.push_back(c);
+    }
+    if (!current.empty()) {
+        parts.push_back(current);
+    }
+
+    for (auto &part : parts) {
+        std::string item = trim(part);
+        if (item.empty()) continue;
+        std::string lower = to_lower(item);
+        if (ieq_prefix(lower, "primary key") || ieq_prefix(lower, "foreign key") ||
+            ieq_prefix(lower, "constraint") || ieq_prefix(lower, "unique") ||
+            ieq_prefix(lower, "key") || ieq_prefix(lower, "index")) {
+            continue;
+        }
+        size_t pos = 0;
+        std::string col;
+        if (parse_identifier(item, pos, col)) {
+            columns.push_back(col);
+        }
+    }
+    return !columns.empty();
+}
+
+int64_t make_payload_key(int table_id, int id) {
+    return (static_cast<int64_t>(table_id) << 32) | static_cast<uint32_t>(id);
+}
+
+std::string build_raw_data(const std::vector<DbField> &fields) {
+    std::ostringstream ss;
+    for (size_t i = 0; i < fields.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << fields[i].name << "=" << fields[i].value;
+    }
+    return ss.str();
+}
+
+struct DbCarrierAgent {
+    float x = 0.0f;
+    float y = 0.0f;
+    int payload_index = -1;
+};
+
+bool find_empty_near(const DbWorld &world, int cx, int cy, int radius, int &out_x, int &out_y) {
+    int x0 = std::max(0, cx - radius);
+    int x1 = std::min(world.width - 1, cx + radius);
+    int y0 = std::max(0, cy - radius);
+    int y1 = std::min(world.height - 1, cy + radius);
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            if (world.cell_payload[static_cast<size_t>(y) * world.width + x] < 0) {
+                out_x = x;
+                out_y = y;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool match_field(const DbPayload &payload, const std::string &name, const std::string &value) {
+    for (const auto &f : payload.fields) {
+        if (ieq(f.name, name) && f.value == value) {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
+int db_add_table(DbWorld &world, const std::string &name) {
+    std::string key = to_lower(name);
+    auto it = world.table_lookup.find(key);
+    if (it != world.table_lookup.end()) {
+        return it->second;
+    }
+    int id = static_cast<int>(world.table_names.size());
+    world.table_lookup[key] = id;
+    world.table_names.push_back(name);
+    world.table_columns.emplace_back();
+    if (world.width > 0 && world.height > 0) {
+        world.table_pheromones.emplace_back(world.width, world.height, 0.0f);
+    }
+    return id;
+}
+
+int db_find_table(const DbWorld &world, const std::string &name) {
+    std::string key = to_lower(name);
+    auto it = world.table_lookup.find(key);
+    if (it != world.table_lookup.end()) {
+        return it->second;
+    }
+    return -1;
+}
+
+void db_init_world(DbWorld &world, int width, int height) {
+    world.width = width;
+    world.height = height;
+    world.cell_payload.assign(static_cast<size_t>(width) * height, -1);
+    world.table_pheromones.clear();
+    world.table_pheromones.reserve(world.table_names.size());
+    for (size_t i = 0; i < world.table_names.size(); ++i) {
+        world.table_pheromones.emplace_back(width, height, 0.0f);
+    }
+    world.data_density = GridField(width, height, 0.0f);
+    world.mycel = MycelNetwork(width, height);
+    world.payload_positions.clear();
+}
+
+bool db_place_payload(DbWorld &world, int payload_index, int x, int y) {
+    if (payload_index < 0 || payload_index >= static_cast<int>(world.payloads.size())) {
+        return false;
+    }
+    if (x < 0 || y < 0 || x >= world.width || y >= world.height) {
+        return false;
+    }
+    size_t idx = static_cast<size_t>(y) * world.width + x;
+    if (world.cell_payload[idx] >= 0) {
+        return false;
+    }
+    DbPayload &payload = world.payloads[static_cast<size_t>(payload_index)];
+    payload.x = x;
+    payload.y = y;
+    payload.placed = true;
+    world.cell_payload[idx] = payload_index;
+    world.data_density.at(x, y) = 1.0f;
+    if (payload.table_id >= 0 && payload.table_id < static_cast<int>(world.table_pheromones.size())) {
+        world.table_pheromones[static_cast<size_t>(payload.table_id)].at(x, y) += 1.0f;
+    }
+    world.payload_positions[make_payload_key(payload.table_id, payload.id)] = {x, y};
+    return true;
+}
+
+bool db_load_sql(const std::string &path, DbWorld &world, std::string &error) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in.is_open()) {
+        error = "SQL-Datei konnte nicht geoeffnet werden: " + path;
+        return false;
+    }
+    std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (content.empty()) {
+        error = "SQL-Datei ist leer.";
+        return false;
+    }
+
+    std::string stmt;
+    bool in_string = false;
+    char string_quote = 0;
+    bool in_line_comment = false;
+    bool in_block_comment = false;
+    for (size_t i = 0; i < content.size(); ++i) {
+        char c = content[i];
+        char n = (i + 1 < content.size()) ? content[i + 1] : '\0';
+        if (!in_string && !in_block_comment && c == '-' && n == '-') {
+            in_line_comment = true;
+            i++;
+            continue;
+        }
+        if (!in_string && !in_line_comment && c == '/' && n == '*') {
+            in_block_comment = true;
+            i++;
+            continue;
+        }
+        if (in_line_comment) {
+            if (c == '\n' || c == '\r') {
+                in_line_comment = false;
+            }
+            continue;
+        }
+        if (in_block_comment) {
+            if (c == '*' && n == '/') {
+                in_block_comment = false;
+                i++;
+            }
+            continue;
+        }
+
+        if (c == '\'' || c == '"') {
+            if (!in_string) {
+                in_string = true;
+                string_quote = c;
+            } else if (c == string_quote) {
+                if (n == string_quote) {
+                    stmt.push_back(c);
+                    stmt.push_back(n);
+                    i++;
+                    continue;
+                }
+                in_string = false;
+            }
+        }
+        stmt.push_back(c);
+        if (!in_string && c == ';') {
+            std::string stmt_trim = trim(stmt);
+            std::string table_name;
+            std::vector<std::string> schema_cols;
+            if (parse_create_table_statement(stmt_trim, table_name, schema_cols)) {
+                int table_id = db_add_table(world, table_name);
+                if (!schema_cols.empty()) {
+                    world.table_columns[static_cast<size_t>(table_id)] = schema_cols;
+                }
+                stmt.clear();
+                continue;
+            }
+            SqlInsert insert;
+            if (parse_insert_statement(stmt, insert)) {
+                int table_id = db_add_table(world, insert.table);
+                if (!insert.columns.empty() && world.table_columns[static_cast<size_t>(table_id)].empty()) {
+                    world.table_columns[static_cast<size_t>(table_id)] = insert.columns;
+                }
+                for (const auto &row : insert.rows) {
+                    DbPayload payload;
+                    payload.table_id = table_id;
+                    payload.fields.clear();
+                    if (!insert.columns.empty()) {
+                        if (row.size() != insert.columns.size()) {
+                            continue;
+                        }
+                        for (size_t ci = 0; ci < insert.columns.size(); ++ci) {
+                            DbField field;
+                            field.name = insert.columns[ci];
+                            field.value = strip_quotes(row[ci]);
+                            payload.fields.push_back(field);
+                        }
+                    } else {
+                        const auto &schema = world.table_columns[static_cast<size_t>(table_id)];
+                        for (size_t ci = 0; ci < row.size(); ++ci) {
+                            DbField field;
+                            if (ci < schema.size()) {
+                                field.name = schema[ci];
+                            } else {
+                                field.name = "col" + std::to_string(ci);
+                            }
+                            field.value = strip_quotes(row[ci]);
+                            payload.fields.push_back(field);
+                        }
+                    }
+                    int id_value = 0;
+                    bool found_id = false;
+                    for (const auto &f : payload.fields) {
+                        if (ieq(f.name, "id")) {
+                            if (parse_int_value(f.value, id_value)) {
+                                found_id = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (!found_id) {
+                        if (!payload.fields.empty()) {
+                            found_id = parse_int_value(payload.fields.front().value, id_value);
+                        }
+                    }
+                    if (!found_id) {
+                        id_value = static_cast<int>(world.payloads.size()) + 1;
+                    }
+                    payload.id = id_value;
+                    for (const auto &f : payload.fields) {
+                        if (!ends_with_id(f.name)) continue;
+                        int fk_id = 0;
+                        if (!parse_int_value(f.value, fk_id)) continue;
+                        std::string fk_table = fk_table_from_column(f.name);
+                        int fk_table_id = db_add_table(world, fk_table);
+                        DbForeignKey fk;
+                        fk.table_id = fk_table_id;
+                        fk.id = fk_id;
+                        fk.column = f.name;
+                        payload.foreign_keys.push_back(fk);
+                    }
+                    payload.raw_data = build_raw_data(payload.fields);
+                    world.payloads.push_back(std::move(payload));
+                }
+            }
+            stmt.clear();
+        }
+    }
+    if (world.payloads.empty()) {
+        error = "Keine INSERT-Statements gefunden.";
+        return false;
+    }
+    return true;
+}
+
+bool db_run_ingest(DbWorld &world, const DbIngestConfig &cfg, std::string &error) {
+    if (world.width <= 0 || world.height <= 0) {
+        error = "Ungueltige Rastergroesse.";
+        return false;
+    }
+    if (world.payloads.empty()) {
+        error = "Keine Payloads vorhanden.";
+        return false;
+    }
+    db_init_world(world, world.width, world.height);
+    Rng rng(cfg.seed);
+    int spawn_x = cfg.spawn_x >= 0 ? cfg.spawn_x : world.width / 2;
+    int spawn_y = cfg.spawn_y >= 0 ? cfg.spawn_y : world.height / 2;
+
+    std::vector<int> pending;
+    pending.reserve(world.payloads.size());
+    for (size_t i = 0; i < world.payloads.size(); ++i) {
+        pending.push_back(static_cast<int>(i));
+    }
+    size_t pending_index = 0;
+
+    std::vector<DbCarrierAgent> agents;
+    agents.reserve(cfg.agent_count);
+    for (int i = 0; i < cfg.agent_count; ++i) {
+        DbCarrierAgent a;
+        a.x = static_cast<float>(spawn_x);
+        a.y = static_cast<float>(spawn_y);
+        agents.push_back(a);
+    }
+
+    GridField phero_accum(world.width, world.height, 0.0f);
+    FieldParams pheromone_params{0.02f, 0.15f};
+
+    for (int step = 0; step < cfg.steps; ++step) {
+        for (auto &agent : agents) {
+            if (agent.payload_index < 0) {
+                if (pending_index < pending.size()) {
+                    agent.payload_index = pending[pending_index++];
+                } else {
+                    continue;
+                }
+            }
+            DbPayload &payload = world.payloads[static_cast<size_t>(agent.payload_index)];
+            if (payload.placed) {
+                agent.payload_index = -1;
+                continue;
+            }
+            bool has_target = false;
+            int tx = spawn_x;
+            int ty = spawn_y;
+            if (!payload.foreign_keys.empty()) {
+                for (const auto &fk : payload.foreign_keys) {
+                    int64_t key = make_payload_key(fk.table_id, fk.id);
+                    auto it = world.payload_positions.find(key);
+                    if (it != world.payload_positions.end()) {
+                        tx = it->second.first;
+                        ty = it->second.second;
+                        has_target = true;
+                        break;
+                    }
+                }
+            }
+            float dx = static_cast<float>(tx) - agent.x;
+            float dy = static_cast<float>(ty) - agent.y;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > 0.001f) {
+                float step_len = 1.0f;
+                float jitter = rng.uniform(-0.35f, 0.35f);
+                agent.x += (dx / dist) * step_len + jitter;
+                agent.y += (dy / dist) * step_len + jitter;
+            } else {
+                agent.x += rng.uniform(-1.0f, 1.0f);
+                agent.y += rng.uniform(-1.0f, 1.0f);
+            }
+            int cx = std::max(0, std::min(world.width - 1, static_cast<int>(std::round(agent.x))));
+            int cy = std::max(0, std::min(world.height - 1, static_cast<int>(std::round(agent.y))));
+            int place_x = -1;
+            int place_y = -1;
+            bool allow_place = has_target ? (dist <= 2.5f) : (rng.uniform(0.0f, 1.0f) < 0.1f);
+            if (allow_place && find_empty_near(world, cx, cy, 2, place_x, place_y)) {
+                db_place_payload(world, agent.payload_index, place_x, place_y);
+                agent.payload_index = -1;
+            }
+        }
+
+        phero_accum.fill(0.0f);
+        for (const auto &field : world.table_pheromones) {
+            for (size_t i = 0; i < field.data.size(); ++i) {
+                phero_accum.data[i] += field.data[i];
+            }
+        }
+        diffuse_and_evaporate(phero_accum, pheromone_params);
+        world.mycel.update(SimParams{}, phero_accum, world.data_density);
+    }
+    size_t placed_count = 0;
+    for (const auto &p : world.payloads) {
+        if (p.placed) {
+            placed_count++;
+        }
+    }
+    if (placed_count < world.payloads.size()) {
+        std::vector<int> free_cells;
+        free_cells.reserve(static_cast<size_t>(world.width) * world.height);
+        for (int y = 0; y < world.height; ++y) {
+            for (int x = 0; x < world.width; ++x) {
+                if (world.cell_payload[static_cast<size_t>(y) * world.width + x] < 0) {
+                    free_cells.push_back(y * world.width + x);
+                }
+            }
+        }
+        if (free_cells.size() < (world.payloads.size() - placed_count)) {
+            error = "Nicht genug freie Zellen fuer alle Payloads.";
+            return false;
+        }
+        for (size_t i = 0; i < world.payloads.size(); ++i) {
+            DbPayload &payload = world.payloads[i];
+            if (payload.placed) continue;
+            int pick = rng.uniform_int(0, static_cast<int>(free_cells.size() - 1));
+            int idx = free_cells[static_cast<size_t>(pick)];
+            free_cells[static_cast<size_t>(pick)] = free_cells.back();
+            free_cells.pop_back();
+            int px = idx % world.width;
+            int py = idx / world.width;
+            if (!db_place_payload(world, static_cast<int>(i), px, py)) {
+                error = "Konnte Payload nicht platzieren.";
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool db_save_myco(const std::string &path, const DbWorld &world, std::string &error) {
+    std::ofstream out(path);
+    if (!out.is_open()) {
+        error = "MYCO-Datei konnte nicht geschrieben werden: " + path;
+        return false;
+    }
+    out << "MYCO1\n";
+    out << world.width << " " << world.height << "\n";
+    out << "tables " << world.table_names.size() << "\n";
+    for (size_t i = 0; i < world.table_names.size(); ++i) {
+        out << i << "\t" << escape_string(world.table_names[i]) << "\n";
+    }
+    out << "columns " << world.table_names.size() << "\n";
+    for (size_t i = 0; i < world.table_names.size(); ++i) {
+        const auto &cols = (i < world.table_columns.size()) ? world.table_columns[i] : std::vector<std::string>{};
+        out << i << "\t" << cols.size();
+        for (const auto &c : cols) {
+            out << "\t" << escape_string(c);
+        }
+        out << "\n";
+    }
+    out << "payloads " << world.payloads.size() << "\n";
+    for (const auto &p : world.payloads) {
+        out << p.id << "\t" << p.table_id << "\t" << p.x << "\t" << p.y << "\t"
+            << p.fields.size() << "\t" << p.foreign_keys.size() << "\t" << escape_string(p.raw_data).size() << "\n";
+        out << escape_string(p.raw_data) << "\n";
+        for (const auto &f : p.fields) {
+            out << escape_string(f.name) << "\t" << escape_string(f.value) << "\n";
+        }
+        for (const auto &fk : p.foreign_keys) {
+            out << fk.table_id << "\t" << fk.id << "\t" << escape_string(fk.column) << "\n";
+        }
+    }
+    return true;
+}
+
+bool db_load_myco(const std::string &path, DbWorld &world, std::string &error) {
+    std::ifstream in(path);
+    if (!in.is_open()) {
+        error = "MYCO-Datei konnte nicht geoeffnet werden: " + path;
+        return false;
+    }
+    std::string header;
+    if (!std::getline(in, header) || trim(header) != "MYCO1") {
+        error = "MYCO-Header ungueltig.";
+        return false;
+    }
+    int width = 0;
+    int height = 0;
+    {
+        std::string line;
+        if (!std::getline(in, line)) {
+            error = "MYCO-Dimension fehlt.";
+            return false;
+        }
+        std::stringstream ss(line);
+        ss >> width >> height;
+        if (width <= 0 || height <= 0) {
+            error = "MYCO-Dimension ungueltig.";
+            return false;
+        }
+    }
+    world = DbWorld{};
+    world.width = width;
+    world.height = height;
+
+    std::string line;
+    if (!std::getline(in, line)) {
+        error = "MYCO-Tabellen fehlen.";
+        return false;
+    }
+    {
+        std::stringstream ss(line);
+        std::string tag;
+        size_t count = 0;
+        ss >> tag >> count;
+        if (tag != "tables") {
+            error = "MYCO-Tabellen-Tag fehlt.";
+            return false;
+        }
+        world.table_names.resize(count);
+        world.table_columns.resize(count);
+        for (size_t i = 0; i < count; ++i) {
+            if (!std::getline(in, line)) {
+                error = "MYCO-Tabellenliste unvollstaendig.";
+                return false;
+            }
+            std::stringstream row(line);
+            size_t id = 0;
+            std::string name;
+            if (!(row >> id)) {
+                error = "MYCO-Tabellen-ID fehlt.";
+                return false;
+            }
+            if (!std::getline(row, name)) {
+                error = "MYCO-Tabellenname fehlt.";
+                return false;
+            }
+            name = trim(name);
+            if (!name.empty() && name[0] == '\t') {
+                name.erase(0, 1);
+            }
+            if (id < world.table_names.size()) {
+                world.table_names[id] = unescape_string(name);
+            }
+        }
+    }
+    for (size_t i = 0; i < world.table_names.size(); ++i) {
+        world.table_lookup[to_lower(world.table_names[i])] = static_cast<int>(i);
+    }
+    world.table_pheromones.clear();
+    for (size_t i = 0; i < world.table_names.size(); ++i) {
+        world.table_pheromones.emplace_back(width, height, 0.0f);
+    }
+
+    if (!std::getline(in, line)) {
+        error = "MYCO-Payload-Tag fehlt.";
+        return false;
+    }
+    if (line.rfind("columns", 0) == 0) {
+        std::stringstream ss(line);
+        std::string tag;
+        size_t count = 0;
+        ss >> tag >> count;
+        if (tag != "columns" || count != world.table_names.size()) {
+            error = "MYCO-Columns-Tag ungueltig.";
+            return false;
+        }
+        for (size_t i = 0; i < count; ++i) {
+            if (!std::getline(in, line)) {
+                error = "MYCO-Columns-Liste unvollstaendig.";
+                return false;
+            }
+            std::stringstream row(line);
+            size_t id = 0;
+            size_t col_count = 0;
+            row >> id >> col_count;
+            if (id >= world.table_columns.size()) {
+                continue;
+            }
+            std::vector<std::string> cols;
+            for (size_t c = 0; c < col_count; ++c) {
+                std::string col;
+                if (!(row >> col)) break;
+                cols.push_back(unescape_string(col));
+            }
+            world.table_columns[id] = std::move(cols);
+        }
+        if (!std::getline(in, line)) {
+            error = "MYCO-Payload-Tag fehlt.";
+            return false;
+        }
+    }
+    size_t payload_count = 0;
+    {
+        std::stringstream ss(line);
+        std::string tag;
+        ss >> tag >> payload_count;
+        if (tag != "payloads") {
+            error = "MYCO-Payload-Tag ungueltig.";
+            return false;
+        }
+    }
+    world.payloads.clear();
+    world.payloads.reserve(payload_count);
+    for (size_t i = 0; i < payload_count; ++i) {
+        if (!std::getline(in, line)) {
+            error = "MYCO-Payload-Header fehlt.";
+            return false;
+        }
+        std::stringstream row(line);
+        DbPayload p;
+        size_t field_count = 0;
+        size_t fk_count = 0;
+        size_t raw_len = 0;
+        row >> p.id >> p.table_id >> p.x >> p.y >> field_count >> fk_count >> raw_len;
+        if (!std::getline(in, line)) {
+            error = "MYCO-Payload-Daten fehlen.";
+            return false;
+        }
+        p.raw_data = unescape_string(line);
+        if (raw_len > 0 && p.raw_data.size() != raw_len) {
+            // size mismatch is tolerated to keep forward compatibility
+        }
+        p.fields.reserve(field_count);
+        for (size_t f = 0; f < field_count; ++f) {
+            if (!std::getline(in, line)) {
+                error = "MYCO-Feldzeile fehlt.";
+                return false;
+            }
+            std::stringstream fr(line);
+            std::string name;
+            std::string value;
+            if (!std::getline(fr, name, '\t')) {
+                error = "MYCO-Feldname fehlt.";
+                return false;
+            }
+            if (!std::getline(fr, value)) {
+                value.clear();
+            }
+            DbField field;
+            field.name = unescape_string(name);
+            field.value = unescape_string(trim(value));
+            p.fields.push_back(std::move(field));
+        }
+        p.foreign_keys.reserve(fk_count);
+        for (size_t f = 0; f < fk_count; ++f) {
+            if (!std::getline(in, line)) {
+                error = "MYCO-FK-Zeile fehlt.";
+                return false;
+            }
+            std::stringstream fr(line);
+            DbForeignKey fk;
+            fr >> fk.table_id >> fk.id;
+            std::string col;
+            if (std::getline(fr, col)) {
+                col = trim(col);
+                if (!col.empty() && col[0] == '\t') {
+                    col.erase(0, 1);
+                }
+                fk.column = unescape_string(col);
+            }
+            p.foreign_keys.push_back(std::move(fk));
+        }
+        p.placed = (p.x >= 0 && p.y >= 0);
+        world.payloads.push_back(std::move(p));
+    }
+    db_init_world(world, width, height);
+    for (size_t i = 0; i < world.payloads.size(); ++i) {
+        DbPayload &p = world.payloads[i];
+        if (p.placed && p.x >= 0 && p.y >= 0) {
+            db_place_payload(world, static_cast<int>(i), p.x, p.y);
+        }
+    }
+    return true;
+}
+
+bool db_parse_query(const std::string &query, DbQuery &out) {
+    std::string q = query;
+    std::string upper = to_lower(query);
+    size_t from_pos = upper.find("from");
+    size_t where_pos = upper.find("where");
+    if (from_pos == std::string::npos || where_pos == std::string::npos || where_pos < from_pos) {
+        return false;
+    }
+    std::string from_part = trim(q.substr(from_pos + 4, where_pos - (from_pos + 4)));
+    std::string where_part = trim(q.substr(where_pos + 5));
+    size_t eq = where_part.find('=');
+    if (eq == std::string::npos) {
+        return false;
+    }
+    out.table = trim(from_part);
+    out.column = trim(where_part.substr(0, eq));
+    out.value = trim(where_part.substr(eq + 1));
+    out.value = strip_quotes(out.value);
+    return !out.table.empty() && !out.column.empty() && !out.value.empty();
+}
+
+std::vector<int> db_execute_query(const DbWorld &world, const DbQuery &q, int radius) {
+    std::vector<int> out;
+    int table_id = db_find_table(world, q.table);
+    if (table_id < 0) {
+        return out;
+    }
+    bool fk_query = ends_with_id(q.column);
+    int target_id = 0;
+    if (fk_query && !parse_int_value(q.value, target_id)) {
+        fk_query = false;
+    }
+    bool pk_query = false;
+    if (fk_query) {
+        std::string col_lower = to_lower(q.column);
+        std::string table_lower = to_lower(q.table);
+        if (col_lower == "id" || col_lower == table_lower + "id" || col_lower == table_lower + "_id") {
+            pk_query = true;
+        }
+    }
+    if (fk_query) {
+        std::string parent_table = fk_table_from_column(q.column);
+        int parent_id = db_find_table(world, parent_table);
+        if (parent_id >= 0) {
+            int64_t key = make_payload_key(parent_id, target_id);
+            auto it = world.payload_positions.find(key);
+            if (it != world.payload_positions.end()) {
+                int px = it->second.first;
+                int py = it->second.second;
+                int x0 = std::max(0, px - radius);
+                int x1 = std::min(world.width - 1, px + radius);
+                int y0 = std::max(0, py - radius);
+                int y1 = std::min(world.height - 1, py + radius);
+                for (int y = y0; y <= y1; ++y) {
+                    for (int x = x0; x <= x1; ++x) {
+                        int idx = world.cell_payload[static_cast<size_t>(y) * world.width + x];
+                        if (idx < 0) continue;
+                        const DbPayload &p = world.payloads[static_cast<size_t>(idx)];
+                        if (p.table_id != table_id) continue;
+                        for (const auto &fk : p.foreign_keys) {
+                            if (fk.table_id == parent_id && fk.id == target_id) {
+                                out.push_back(idx);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!out.empty()) {
+                    return out;
+                }
+            }
+        }
+    }
+    for (size_t i = 0; i < world.payloads.size(); ++i) {
+        const DbPayload &p = world.payloads[i];
+        if (p.table_id != table_id) continue;
+        if (pk_query && p.id == target_id) {
+            out.push_back(static_cast<int>(i));
+            continue;
+        }
+        if (match_field(p, q.column, q.value)) {
+            out.push_back(static_cast<int>(i));
+        }
+    }
+    return out;
+}
+
+std::vector<int> db_execute_query_focus(const DbWorld &world, const DbQuery &q, int center_x, int center_y, int radius) {
+    std::vector<int> out;
+    int table_id = db_find_table(world, q.table);
+    if (table_id < 0 || world.width <= 0 || world.height <= 0) {
+        return out;
+    }
+    int x0 = std::max(0, center_x - radius);
+    int x1 = std::min(world.width - 1, center_x + radius);
+    int y0 = std::max(0, center_y - radius);
+    int y1 = std::min(world.height - 1, center_y + radius);
+
+    bool fk_query = ends_with_id(q.column);
+    int target_id = 0;
+    if (fk_query && !parse_int_value(q.value, target_id)) {
+        fk_query = false;
+    }
+    bool pk_query = false;
+    if (fk_query) {
+        std::string col_lower = to_lower(q.column);
+        std::string table_lower = to_lower(q.table);
+        if (col_lower == "id" || col_lower == table_lower + "id" || col_lower == table_lower + "_id") {
+            pk_query = true;
+        }
+    }
+    int fk_table_id = -1;
+    if (fk_query && !pk_query) {
+        std::string parent_table = fk_table_from_column(q.column);
+        fk_table_id = db_find_table(world, parent_table);
+    }
+
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            int idx = world.cell_payload[static_cast<size_t>(y) * world.width + x];
+            if (idx < 0 || idx >= static_cast<int>(world.payloads.size())) continue;
+            const DbPayload &p = world.payloads[static_cast<size_t>(idx)];
+            if (p.table_id != table_id) continue;
+            if (pk_query && p.id == target_id) {
+                out.push_back(idx);
+                continue;
+            }
+            if (fk_query && fk_table_id >= 0) {
+                for (const auto &fk : p.foreign_keys) {
+                    if (fk.table_id == fk_table_id && fk.id == target_id) {
+                        out.push_back(idx);
+                        break;
+                    }
+                }
+                continue;
+            }
+            if (match_field(p, q.column, q.value)) {
+                out.push_back(idx);
+            }
+        }
+    }
+    return out;
+}
+
+bool db_save_cluster_ppm(const std::string &path, const DbWorld &world, int scale, std::string &error) {
+    if (world.width <= 0 || world.height <= 0) {
+        error = "Ungueltige Rastergroesse fuer PPM.";
+        return false;
+    }
+    if (scale <= 0) {
+        error = "Ungueltiger PPM-Scale.";
+        return false;
+    }
+    std::ofstream out(path);
+    if (!out.is_open()) {
+        error = "PPM-Datei konnte nicht geschrieben werden: " + path;
+        return false;
+    }
+    static const int palette[][3] = {
+        {30, 30, 30},
+        {220, 60, 60},
+        {60, 200, 90},
+        {70, 120, 220},
+        {220, 200, 60},
+        {200, 80, 200},
+        {60, 200, 200},
+        {200, 140, 60},
+        {160, 160, 160}
+    };
+    const int palette_size = static_cast<int>(sizeof(palette) / sizeof(palette[0]));
+
+    out << "P3\n" << world.width * scale << " " << world.height * scale << "\n255\n";
+    for (int y = 0; y < world.height; ++y) {
+        for (int sy = 0; sy < scale; ++sy) {
+            for (int x = 0; x < world.width; ++x) {
+                int idx = world.cell_payload[static_cast<size_t>(y) * world.width + x];
+                int color = 0;
+                if (idx >= 0 && idx < static_cast<int>(world.payloads.size())) {
+                    const DbPayload &p = world.payloads[static_cast<size_t>(idx)];
+                    color = 1 + (p.table_id % (palette_size - 1));
+                }
+                for (int sx = 0; sx < scale; ++sx) {
+                    out << palette[color][0] << " " << palette[color][1] << " " << palette[color][2] << " ";
+                }
+            }
+            out << "\n";
+        }
+    }
+    return true;
+}
