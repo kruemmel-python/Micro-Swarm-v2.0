@@ -19,22 +19,33 @@ Dateien:
 
 ### Rueckgabewerte / Fehler
 
-- Funktionen mit `int`-Rueckgabe liefern **0 bei Fehler** (oder 0 Elemente), **>0 bei Erfolg**.
+- Query/Lookup-Funktionen liefern die Anzahl Treffer; **0** ist dabei ein valides Ergebnis (z. B. keine Treffer).
+- Action/Lifecycle-Funktionen mit `int`-Rueckgabe liefern **0 bei Fehler**, **>0 bei Erfolg**.
 - `ms_step/ms_run` liefern die ausgefuehrten Schritte (0 bei Fehler/ungueligem Handle).
 - `ms_copy_field_in/out` erwarten `count` als **Anzahl Floats** (nicht Bytes).
 - `ms_get_field_info` gibt `w/hgt` aus, hat **keinen** Returncode.
+- Bei MycoDB liefert `ms_db_get_last_error()` den letzten Fehlertext fuer diesen DB-Handle.
+
+Funktionsklassen (Kurzregel):
+- Query/Lookup: Rueckgabe = Trefferanzahl (0 = ok, "no results")
+- Copy/Write/Step/Run: Rueckgabe = Anzahl geschriebener Elemente / Schritte (0 = Fehler)
+- Create: Rueckgabe = Handle (NULL = Fehler), nicht int
+- Getter ohne Returncode: nur Out-Parameter gueltig, wenn Handle gueltig
+
+Diese Klassifizierung ist Teil des API-Vertrags.
 
 #### Returncode-Tabelle (aktuell)
 
 | Code | Bedeutung |
 |------|-----------|
 | > 0  | Erfolg (z. B. Anzahl geschriebener Elemente oder Schritte) |
-| 0    | Fehler (generic failure / ungueltige Eingaben) |
+| 0    | Fehler (Action/Lifecycle) **oder** 0 Treffer (Query/Lookup) |
 
 ### Struct-Groesse / ABI-Hinweis
 
 - Die Struct-Groessen muessen mit dem verwendeten `micro_swarm_api.h` uebereinstimmen.
-- Es gibt **keine** automatische Ignorierung zusaetzlicher Felder.
+- Kein `struct_size` Feld; Structs sind nicht versionstolerant.
+- Header und DLL muessen exakt zusammenpassen; andernfalls ist Verhalten undefiniert. Dynamische Loader muessen `ms_get_api_version` pruefen.
 
 ### Field-IDs (Enum)
 
@@ -72,6 +83,7 @@ Die MycoDB-Funktionen sind in der DLL verfuegbar und nutzen einen separaten Hand
 - Hilfen: `ms_db_find_payload_by_id()`, `ms_db_get_payload_count()`, `ms_db_get_table_count()`
 
 Fehlertexte koennen ueber `ms_db_get_last_error()` abgefragt werden.
+Swarm-Handle (`ms_handle_t`) und DB-Handle (`ms_db_handle_t`) sind nicht kompatibel und duerfen nicht gemischt werden.
 
 Ein komplettes C# Beispiel findest du in `examples/MycoDbExample.cs`.
 

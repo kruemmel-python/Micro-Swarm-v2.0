@@ -20,12 +20,15 @@ This document defines the stability guarantees and versioning strategy for the M
 - New fields are **appended** to structs.
 - Existing fields are never reordered or removed.
 - Callers should zero-initialize structs and set required fields explicitly.
+- There is no `struct_size` field for version-tolerant layouts. Header and DLL must match; dynamic loaders should verify with `ms_get_api_version`.
 
 ## Error Semantics
 
 - `int` return values:
   - `> 0`: success
   - `0`: failure (invalid handle, invalid inputs, buffer too small, etc.)
+- Query/lookup functions return a count; `0` is a valid "no results" outcome (e.g. `ms_db_query_*`, `ms_db_get_result_count`).
+- Action/lifecycle functions treat `0` as failure.
 
 ## Deprecation Policy
 

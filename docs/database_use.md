@@ -2,6 +2,21 @@
 
 Diese Anleitung beschreibt den kompletten Workflow: von MySQL Workbench ueber den SQL-Dump bis zur Ingestion, interaktiven Abfrage und Ausgabe in Micro-Swarm (MycoDB).
 
+## 1a) Was MycoDB ist / was es nicht ist
+
+MycoDB ist:
+- raeumliches Clustering + lokales Retrieval von relationalen Payloads
+- Shell-Navigation und ein SQL-Light Interpreter als Komfort-Layer
+- optimiert fuer lokale Abfragen (Radius/Fokus); globale Abfragen sind moeglich, aber konzeptionell der Worst Case.
+
+MycoDB ist nicht:
+- keine ACID-DB, keine Transaktionen, keine Konkurrenzkontrolle
+- kein Query-Optimizer/Kostenmodell im DB-Sinne
+- keine vollstaendige SQL-Compliance
+- kein Ersatz fuer Indexstrukturen mit garantierter Worst-Case-Komplexitaet
+
+Diese Abgrenzung ist wichtig, weil "DB" sonst zu klassischen Postgres-Erwartungen fuehrt.
+
 ## 1) Voraussetzungen
 
 - MySQL Workbench installiert
@@ -18,6 +33,10 @@ Empfohlene Struktur im Projektordner:
     shop.myco
     clusters.ppm
 ```
+
+## 1b) Datenvolumen und Komplexitaet (kurz)
+
+Speicherkosten skalieren grob mit `payload_count`, der Grid-Groesse (`size * size`) und Ergebnis-Buffer groessen (Trefferlisten). `--size` erhoeht die Grid-Flaeche quadratisch (256 -> 512 = 4x Zellen). Lokale Queries skalieren mit Radius und Cluster-Dichte; `--db-radius` steuert die Suchflaeche naeherungsweise quadratisch mit dem Radius (doppelt so grosser Radius ~ 4x Flaeche). Worst Case ist ein globaler Scan (z. B. grosser Radius oder Fokus aus).
 
 ## 2) SQL-Dump in MySQL Workbench erstellen
 
@@ -65,6 +84,20 @@ Erwartete Ausgabe:
 ingest_done payloads=<N> tables=<T>
 ```
 
+## 3a) Reproduzierbare Runs (golden path)
+
+Empfohlene Konfiguration fuer reproduzierbare Reports:
+- fixer SQL-Dump (gleiche Datei, gleiche Reihenfolge)
+- feste Parameter: `--seed`, `--size`, `--agents`, `--steps`
+- feste Query-Parameter: `--db-radius` bzw. `radius` in der Shell
+- falls GPU/OpenCL aktiv ist, koennen numerische Abweichungen auftreten; fuer strikte Replays GPU nicht aktivieren oder toleranzbasiert vergleichen
+
+Beispiel:
+
+```powershell
+.\micro_swarm.exe --mode db_ingest --input C:\path\to\dump.sql --steps 5000 --agents 512 --size 256 --seed 42 --output shop.myco
+```
+
 ## 4) Cluster-Bild ansehen (optional)
 
 Das PPM-Bild zeigt die Tabellen-Cluster. Du kannst es oeffnen mit:
@@ -83,6 +116,23 @@ Starte die Shell:
 .\micro_swarm.exe --mode db_shell --db shop.myco --db-radius 5
 ```
 
+Shell-Cheat-Sheet (12 Zeilen):
+
+```
+tables
+schema <table>
+goto <payload_id>
+focus
+radius <N>
+unfocus
+<Table> <PKValue>
+<Table> <col>=<val>
+show <col1,col2,...>
+sql <statement>
+sort <col|index> [asc|desc] [num][, <col|index> [asc|desc] [num] ...]
+format <table|csv|json>
+```
+
 Beispieleingaben:
 
 ```
@@ -95,7 +145,12 @@ stats
 schema Track
 Track AlbumId=1 show TrackId,Name,Milliseconds
 TrackId=13
-sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
+sql SELECT TrackId,Name FROM Track LIMIT 5
+sql SELECT TrackId,Name FROM Track WHERE TrackId=1
+sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId
+sql SELECT TrackId,Name FROM Track WHERE AlbumId='1' ORDER BY TrackId
+
+
 ```
 
 Bedeutung:
@@ -104,11 +159,12 @@ Bedeutung:
 - `goto 1234` setzt den Fokus auf Payload ID 1234.
 - `radius 12` setzt den Suchradius fuer alle folgenden Anfragen.
 - `tables` listet alle Tabellen.
-- `stats` zeigt Payload-Counts pro Tabelle.
 - `schema <table>` zeigt bekannte Spalten.
 - `show ...` filtert die Ausgabe auf Spalten.
 - `<Column>=<Value>` ohne Tabellennamen sucht global.
 - `sql <statement>` fuehrt SQL-Light aus (Phase 1).
+- `sort <col|index> [asc|desc] [num][, <col|index> [asc|desc] [num] ...]` sortiert das letzte SQL-Result oder das letzte Shell-Result.
+- `sort reset` stellt das letzte SQL-Result wieder her.
 - `format <table|csv|json>` setzt das SQL-Ausgabeformat.
 
 Solange ein Fokus gesetzt ist, werden alle Suchanfragen lokal um diesen Punkt ausgefuehrt.
@@ -153,6 +209,8 @@ FROM (SELECT ...) als Subquery
 Hinweise:
 - Subqueries koennen aeussere Spalten referenzieren (korreliert).
 - CTEs sind **nicht rekursiv**.
+- Numerische Literale koennen ohne Quotes genutzt werden (z. B. `AlbumId=1`).
+- `ORDER BY` sortiert numerisch, wenn beide Werte als Zahl parsebar sind.
 
 ## 7) Fehlerdiagnose
 

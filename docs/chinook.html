@@ -123,36 +123,81 @@
 </head>
 <body>
   <main>
-    <h1>Chinook: MycoDB Beispiele (Micro-Swarm)</h1>
-<p>Diese Datei zeigt praxisnahe Beispiele fuer die Chinook-Datenbank mit dem interaktiven <code>db_shell</code> Modus.
+    <h1>Chinook: MycoDB Referenz (Micro-Swarm)</h1>
+<p>Diese Datei ist die komplette Referenz fuer die Datenbank <code>chinook_optimized.myco</code> im interaktiven <code>db_shell</code>.
 Alle Beispiele sind kompatibel mit dem aktuellen MycoDB-Parser und der Shell-Syntax.</p>
 <p>Ausgangspunkt:</p>
 <pre><code class="language-powershell">.\micro_swarm.exe --mode db_shell --db chinook_optimized.myco --db-radius 15
 </code></pre>
-<h2>Shell-Kommandos (Meta)</h2>
+<h2>Tabellen und Schema (Chinook)</h2>
+<p>Tabellen:</p>
+<pre><code>album
+Artist
+employee
+genre
+invoice
+Customer
+invoiceline
+Track
+mediatype
+playlist
+playlisttrack
+</code></pre>
+<p>Schema:</p>
+<pre><code>album: AlbumId, Title, ArtistId
+Artist: ArtistId, Name
+employee: EmployeeId, LastName, FirstName, Title, ReportsTo, BirthDate, HireDate, Address, City, State, Country, PostalCode, Phone, Fax, Email
+genre: GenreId, Name
+invoice: InvoiceId, CustomerId, InvoiceDate, BillingAddress, BillingCity, BillingState, BillingCountry, BillingPostalCode, Total
+Customer: (keine Spalten bekannt)
+invoiceline: InvoiceLineId, InvoiceId, TrackId, UnitPrice, Quantity
+Track: TrackId, Name, AlbumId, MediaTypeId, GenreId, Composer, Milliseconds, Bytes, UnitPrice
+mediatype: MediaTypeId, Name
+playlist: PlaylistId, Name
+playlisttrack: PlaylistId, TrackId
+</code></pre>
+<p>Hinweise:</p>
+<ul>
+<li>Tabellen-/Spaltennamen sind case-insensitive.</li>
+<li>Wenn eine Tabelle keine Spaltenliste hat (z. B. <code>Customer</code>), nutze <code>col0</code>, <code>col1</code>, ... oder re-ingest mit <code>CREATE TABLE</code>.</li>
+</ul>
+<h2>Shell-Kommandos (vollstaendig)</h2>
 <pre><code>help
-focus
-radius 25
-unfocus
 tables
 stats
-schema Track
-sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
+schema &lt;table&gt;
+goto &lt;payload_id&gt;
+focus
+radius &lt;N&gt;
+unfocus
+format &lt;table|csv|json&gt;
+sort &lt;col|index&gt; [asc|desc] [num][, &lt;col|index&gt; [asc|desc] [num] ...]
+sort reset
 exit
+
+&lt;Table&gt; &lt;PKValue&gt;
+&lt;Table&gt; &lt;col&gt;=&lt;val&gt;
+&lt;col&gt;=&lt;val&gt;
+&lt;Table&gt; ... show &lt;col1,col2,...&gt;
+sql &lt;statement&gt;
 </code></pre>
-<p>Kurzerklaerung:</p>
+<p>Kurzbeschreibung:</p>
 <ul>
 <li><code>help</code>: zeigt alle Befehle</li>
-<li><code>focus</code>: zeigt aktuellen Fokuspunkt (falls gesetzt)</li>
-<li><code>radius N</code>: setzt den Suchradius fuer alle folgenden Abfragen</li>
-<li><code>unfocus</code>: Fokus entfernen</li>
 <li><code>tables</code>: Tabellenliste</li>
 <li><code>stats</code>: Payload-Counts pro Tabelle</li>
 <li><code>schema &lt;table&gt;</code>: Spaltenliste</li>
-<li><code>sql &lt;statement&gt;</code>: SQL-Light Query</li>
+<li><code>goto &lt;payload_id&gt;</code>: Fokus setzen (Payload-ID)</li>
+<li><code>focus</code>: Fokus anzeigen</li>
+<li><code>radius &lt;N&gt;</code>: Suchradius setzen</li>
+<li><code>unfocus</code>: Fokus entfernen</li>
+<li><code>format &lt;table|csv|json&gt;</code>: Ausgabeformat fuer SQL</li>
+<li><code>sort ...</code>: sortiert letztes SQL- oder Shell-Result</li>
+<li><code>sort reset</code>: stellt letztes Result wieder her</li>
 <li><code>exit</code>: Shell beenden</li>
 </ul>
-<h2>1) Primary-Key Queries (direkte ID)</h2>
+<h2>Shell-Beispiele (kompakt, komplett)</h2>
+<p>Primary-Key (impliziter PK):</p>
 <pre><code>Album 1
 Artist 5
 Track 12
@@ -164,8 +209,7 @@ InvoiceLine 20
 Playlist 4
 PlaylistTrack 15
 </code></pre>
-<p>Bedeutung: Zeigt jeweils den Datensatz mit der ID.</p>
-<h2>2) Foreign-Key Queries (Relationen)</h2>
+<p>Foreign-Key (Relationen):</p>
 <pre><code>Album ArtistId=1
 Track AlbumId=1
 Track GenreId=1
@@ -174,76 +218,104 @@ InvoiceLine InvoiceId=1
 Invoice CustomerId=1
 PlaylistTrack PlaylistId=1
 </code></pre>
-<p>Bedeutung: Zeigt alle Datensaetze mit einem Foreign-Key-Wert.</p>
-<h2>3) Navigation per Fokus (goto)</h2>
-<p>Beispiel: zuerst Album 1 finden, dann den Fokus setzen und lokal suchen.</p>
-<pre><code>Album 1
-goto 1
-Track AlbumId=1
-</code></pre>
-<p>Hinweis:</p>
-<ul>
-<li><code>goto &lt;payload_id&gt;</code> nutzt die Payload-ID (nicht zwingend die SQL-ID).</li>
-<li>Die Payload-ID wird in jeder Trefferzeile als <code>id=&lt;...&gt;</code> ausgegeben.</li>
-</ul>
-<h2>4) Radius-gesteuerte Lokalsuche</h2>
-<p>Groesserer Radius fuer groessere Cluster:</p>
-<pre><code>radius 40
-Track AlbumId=1
-</code></pre>
-<p>Kleiner Radius fuer sehr schnelle Antwort:</p>
-<pre><code>radius 5
-Track AlbumId=1
-</code></pre>
-<h2>4b) Spalten filtern (show)</h2>
-<pre><code>Track AlbumId=1 show TrackId,Name,Composer
-</code></pre>
-<h2>4c) Globale Spaltenabfrage (ohne Tabellenname)</h2>
+<p>Global (ohne Tabellenname):</p>
 <pre><code>TrackId=13
 AlbumId=1
 </code></pre>
-<h2>4d) SQL-Light Beispiele</h2>
-<pre><code>sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
-sql SELECT AlbumId, COUNT(*) AS C FROM Track GROUP BY AlbumId HAVING C &gt; 5 ORDER BY C DESC LIMIT 10
-sql SELECT t.Name, a.Title FROM Track t JOIN Album a ON t.AlbumId=a.AlbumId WHERE t.TrackId=13
-sql SELECT Name FROM Artist WHERE Name LIKE 'A%' ORDER BY ArtistId
-sql SELECT TrackId FROM Track WHERE AlbumId=1 UNION SELECT TrackId FROM Track WHERE AlbumId=2
-sql SELECT TrackId FROM Track WHERE AlbumId=1 UNION ALL SELECT TrackId FROM Track WHERE AlbumId=1
-sql SELECT t.Name, a.Title FROM Track t RIGHT JOIN Album a ON t.AlbumId=a.AlbumId WHERE a.AlbumId=1
-sql SELECT * FROM Track CROSS JOIN MediaType LIMIT 3
-sql SELECT Name FROM Artist WHERE Name REGEXP '^A'
-sql SELECT Name FROM Artist WHERE ArtistId IN (SELECT ArtistId FROM Album WHERE AlbumId=1)
-sql SELECT Name FROM Artist WHERE EXISTS (SELECT AlbumId FROM Album WHERE AlbumId=1)
-sql SELECT Name FROM Artist a WHERE EXISTS (SELECT AlbumId FROM Album WHERE Album.ArtistId=a.ArtistId)
-sql SELECT LOWER(Name) AS n FROM Artist ORDER BY n LIMIT 5
-sql SELECT TrackId, Name FROM Track ORDER BY 1 LIMIT 5
-sql SELECT Name FROM Artist WHERE Name IS NOT NULL LIMIT 3
-sql SELECT * FROM (SELECT ArtistId, Name FROM Artist) a WHERE a.ArtistId=1
-sql WITH top_albums AS (SELECT AlbumId FROM Track GROUP BY AlbumId HAVING COUNT(*) &gt; 5) SELECT AlbumId FROM top_albums ORDER BY AlbumId
-</code></pre>
-<h2>5) Kombi-Workflow (typisch)</h2>
-<pre><code>Artist 1
-Album ArtistId=1
+<p>Fokus + Radius:</p>
+<pre><code>Album 1
 goto 1
-Track AlbumId=1
 radius 8
 Track AlbumId=1
+focus
+unfocus
 </code></pre>
-<h2>6) Fallback ohne Spaltenliste (wenn SQL-Dump ohne Column-Names)</h2>
-<p>Wenn der Dump keine Spaltenliste enthaelt, sind Spalten intern <code>col0</code>, <code>col1</code>, …
-Dann funktioniert:</p>
-<pre><code>Album 1
-Track col2=1
+<p>Spalten filtern (show):</p>
+<pre><code>Track AlbumId=1 show TrackId,Name,Milliseconds
 </code></pre>
-<p>(Die genaue Spaltenposition haengt vom Dump ab.)</p>
+<p>Sort (Shell-Result):</p>
+<pre><code>Track AlbumId=1
+sort Milliseconds num
+sort TrackId desc num, Name asc
+sort reset
+</code></pre>
+<h2>SQL-Light Referenz (vollstaendig implementiert)</h2>
+<p>Parser-Garantie:<br>
+Alle in dieser Referenz aufgefuehrten SQL-Konstrukte werden vom aktuellen
+MycoDB-Parser vollstaendig unterstuetzt und sind Teil der stabilen API.</p>
+<p>Nicht unterstuetzt (bewusst): UPDATE / INSERT / DELETE, DDL (CREATE/ALTER/DROP), Transaktionen, Stored Procedures.</p>
+<p>1) SELECT + WHERE (Basis):</p>
+<pre><code>sql SELECT TrackId,Name FROM Track WHERE AlbumId=1
+sql SELECT TrackId,Name FROM Track WHERE TrackId=1
+</code></pre>
+<p>2) WHERE: AND / OR / NOT:</p>
+<pre><code>sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 AND GenreId=1
+sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 OR AlbumId=2
+sql SELECT TrackId,Name FROM Track WHERE NOT GenreId=1
+</code></pre>
+<p>3) WHERE: IN / BETWEEN / LIKE / REGEXP:</p>
+<pre><code>sql SELECT Name FROM Artist WHERE ArtistId IN (1,2,3,4)
+sql SELECT TrackId,Name FROM Track WHERE Milliseconds BETWEEN 200000 AND 300000
+sql SELECT Name FROM Artist WHERE Name LIKE 'A%'
+sql SELECT Name FROM Artist WHERE Name REGEXP '^A'
+</code></pre>
+<p>4) WHERE: IS NULL / IS NOT NULL:</p>
+<pre><code>sql SELECT Name FROM Artist WHERE Name IS NOT NULL LIMIT 5
+</code></pre>
+<p>5) ORDER BY / LIMIT / OFFSET:</p>
+<pre><code>sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId
+sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId DESC LIMIT 5
+sql SELECT TrackId,Name FROM Track ORDER BY TrackId LIMIT 5 OFFSET 5
+</code></pre>
+<p>Hinweis: <code>ORDER BY</code> sortiert numerisch, wenn beide Werte als Zahl parsebar sind.</p>
+<p>6) ORDER BY Spaltenindex:</p>
+<pre><code>sql SELECT TrackId,Name FROM Track ORDER BY 1 LIMIT 5
+</code></pre>
+<p>7) DISTINCT:</p>
+<pre><code>sql SELECT DISTINCT GenreId FROM Track ORDER BY GenreId LIMIT 10
+</code></pre>
+<p>8) GROUP BY / HAVING / Aggregationen:</p>
+<pre><code>sql SELECT AlbumId, COUNT(*) AS C FROM Track GROUP BY AlbumId HAVING C &gt; 5 ORDER BY C DESC LIMIT 10
+sql SELECT GenreId, AVG(Milliseconds) AS AvgMs FROM Track GROUP BY GenreId ORDER BY AvgMs DESC LIMIT 5
+sql SELECT AlbumId, SUM(Milliseconds) AS SumMs FROM Track GROUP BY AlbumId ORDER BY SumMs DESC LIMIT 5
+sql SELECT AlbumId, MIN(Milliseconds) AS MinMs, MAX(Milliseconds) AS MaxMs FROM Track GROUP BY AlbumId LIMIT 5
+</code></pre>
+<p>9) JOINs (Inner/Left/Right/Cross):</p>
+<pre><code>sql SELECT t.Name, a.Title FROM Track t JOIN Album a ON t.AlbumId=a.AlbumId WHERE t.TrackId=13
+sql SELECT t.Name, a.Title FROM Track t LEFT JOIN Album a ON t.AlbumId=a.AlbumId WHERE a.AlbumId=1
+sql SELECT t.Name, a.Title FROM Track t RIGHT JOIN Album a ON t.AlbumId=a.AlbumId WHERE a.AlbumId=1
+sql SELECT * FROM Track CROSS JOIN MediaType LIMIT 3
+</code></pre>
+<p>10) UNION / UNION ALL:</p>
+<pre><code>sql SELECT TrackId FROM Track WHERE AlbumId=1 UNION SELECT TrackId FROM Track WHERE AlbumId=2
+sql SELECT TrackId FROM Track WHERE AlbumId=1 UNION ALL SELECT TrackId FROM Track WHERE AlbumId=1
+</code></pre>
+<p>11) Subqueries: IN / EXISTS / korreliert:</p>
+<pre><code>sql SELECT Name FROM Artist WHERE ArtistId IN (SELECT ArtistId FROM Album WHERE AlbumId=1)
+sql SELECT Name FROM Artist WHERE EXISTS (SELECT AlbumId FROM Album WHERE AlbumId=1)
+sql SELECT Name FROM Artist a WHERE EXISTS (SELECT AlbumId FROM Album WHERE Album.ArtistId=a.ArtistId)
+</code></pre>
+<p>12) CTE (WITH):</p>
+<pre><code>sql WITH top_albums AS (SELECT AlbumId FROM Track GROUP BY AlbumId HAVING COUNT(*) &gt; 5)
+SELECT AlbumId FROM top_albums ORDER BY AlbumId
+</code></pre>
+<p>13) Funktionen:</p>
+<pre><code>sql SELECT LOWER(Name) AS n FROM Artist ORDER BY n LIMIT 5
+sql SELECT UPPER(Name) AS n FROM Artist ORDER BY n LIMIT 5
+sql SELECT LENGTH(Name) AS L FROM Artist ORDER BY L DESC LIMIT 5
+sql SELECT SUBSTRING(Name,1,5) AS S FROM Artist ORDER BY S LIMIT 5
+sql SELECT CONCAT(FirstName,' ',LastName) AS FullName FROM employee ORDER BY FullName LIMIT 5
+</code></pre>
+<p>14) FROM Subquery:</p>
+<pre><code>sql SELECT * FROM (SELECT ArtistId, Name FROM Artist) a WHERE a.ArtistId=1
+</code></pre>
+<p>15) Sort (SQL-Result in der Shell):</p>
+<pre><code>sql SELECT TrackId,Name,Milliseconds FROM Track WHERE AlbumId=1
+sort Milliseconds num
+sort TrackId desc num, Name asc
+sort reset
+</code></pre>
 <hr>
-<p>Hinweis fuer Chinook:</p>
-<ul>
-<li>Tabellen sind kleingeschrieben im Dump, Micro-Swarm ist case-insensitive.</li>
-<li><code>PlaylistTrack</code> ist die Join-Tabelle zwischen Playlist und Track.</li>
-<li><code>InvoiceLine</code> referenziert <code>InvoiceId</code>.</li>
-<li>Wenn Spaltennamen fehlen, ingest erneut mit Dump inkl. <code>CREATE TABLE</code>.</li>
-</ul>
 <p>Ende.</p>
 
   </main>

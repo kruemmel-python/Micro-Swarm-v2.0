@@ -143,11 +143,21 @@
 </ul>
 <h3>Rueckgabewerte / Fehler</h3>
 <ul>
-<li>Funktionen mit <code>int</code>-Rueckgabe liefern <strong>0 bei Fehler</strong> (oder 0 Elemente), <strong>&gt;0 bei Erfolg</strong>.</li>
+<li>Query/Lookup-Funktionen liefern die Anzahl Treffer; <strong>0</strong> ist dabei ein valides Ergebnis (z. B. keine Treffer).</li>
+<li>Action/Lifecycle-Funktionen mit <code>int</code>-Rueckgabe liefern <strong>0 bei Fehler</strong>, <strong>&gt;0 bei Erfolg</strong>.</li>
 <li><code>ms_step/ms_run</code> liefern die ausgefuehrten Schritte (0 bei Fehler/ungueligem Handle).</li>
 <li><code>ms_copy_field_in/out</code> erwarten <code>count</code> als <strong>Anzahl Floats</strong> (nicht Bytes).</li>
 <li><code>ms_get_field_info</code> gibt <code>w/hgt</code> aus, hat <strong>keinen</strong> Returncode.</li>
+<li>Bei MycoDB liefert <code>ms_db_get_last_error()</code> den letzten Fehlertext fuer diesen DB-Handle.</li>
 </ul>
+<p>Funktionsklassen (Kurzregel):</p>
+<ul>
+<li>Query/Lookup: Rueckgabe = Trefferanzahl (0 = ok, &quot;no results&quot;)</li>
+<li>Copy/Write/Step/Run: Rueckgabe = Anzahl geschriebener Elemente / Schritte (0 = Fehler)</li>
+<li>Create: Rueckgabe = Handle (NULL = Fehler), nicht int</li>
+<li>Getter ohne Returncode: nur Out-Parameter gueltig, wenn Handle gueltig</li>
+</ul>
+<p>Diese Klassifizierung ist Teil des API-Vertrags.</p>
 <h4>Returncode-Tabelle (aktuell)</h4>
 <table>
 <thead>
@@ -163,14 +173,14 @@
 </tr>
 <tr>
 <td>0</td>
-<td>Fehler (generic failure / ungueltige Eingaben)</td>
+<td>Fehler (Action/Lifecycle) <strong>oder</strong> 0 Treffer (Query/Lookup)</td>
 </tr>
 </tbody>
 </table>
 <h3>Struct-Groesse / ABI-Hinweis</h3>
 <ul>
-<li>Die Struct-Groessen muessen mit dem verwendeten <code>micro_swarm_api.h</code> uebereinstimmen.</li>
-<li>Es gibt <strong>keine</strong> automatische Ignorierung zusaetzlicher Felder.</li>
+<li>Kein <code>struct_size</code> Feld; Structs sind nicht versionstolerant.</li>
+<li>Header und DLL muessen exakt zusammenpassen; andernfalls ist Verhalten undefiniert. Dynamische Loader muessen <code>ms_get_api_version</code> pruefen.</li>
 </ul>
 <h3>Field-IDs (Enum)</h3>
 <pre><code>0 = RESOURCES
@@ -197,6 +207,7 @@
 <li>Hilfen: <code>ms_db_find_payload_by_id()</code>, <code>ms_db_get_payload_count()</code>, <code>ms_db_get_table_count()</code></li>
 </ul>
 <p>Fehlertexte koennen ueber <code>ms_db_get_last_error()</code> abgefragt werden.</p>
+<p>Swarm-Handle (<code>ms_handle_t</code>) und DB-Handle (<code>ms_db_handle_t</code>) sind nicht kompatibel und duerfen nicht gemischt werden.</p>
 <p>Ein komplettes C# Beispiel findest du in <code>examples/MycoDbExample.cs</code>.</p>
 <hr>
 <h2>Python (ctypes) Beispiel (robust)</h2>

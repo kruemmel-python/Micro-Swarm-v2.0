@@ -123,8 +123,23 @@
 </head>
 <body>
   <main>
-    <h1>MycoDB Anleitung (Micro-Swarm)</h1>
+<h1>MycoDB Anleitung (Micro-Swarm)</h1>
 <p>Diese Anleitung beschreibt den kompletten Workflow: von MySQL Workbench ueber den SQL-Dump bis zur Ingestion, interaktiven Abfrage und Ausgabe in Micro-Swarm (MycoDB).</p>
+<h2>1a) Was MycoDB ist / was es nicht ist</h2>
+<p>MycoDB ist:</p>
+<ul>
+<li>raeumliches Clustering + lokales Retrieval von relationalen Payloads</li>
+<li>Shell-Navigation und ein SQL-Light Interpreter als Komfort-Layer</li>
+<li>optimiert fuer lokale Abfragen (Radius/Fokus); globale Abfragen sind moeglich, aber konzeptionell der Worst Case.</li>
+</ul>
+<p>MycoDB ist nicht:</p>
+<ul>
+<li>keine ACID-DB, keine Transaktionen, keine Konkurrenzkontrolle</li>
+<li>kein Query-Optimizer/Kostenmodell im DB-Sinne</li>
+<li>keine vollstaendige SQL-Compliance</li>
+<li>kein Ersatz fuer Indexstrukturen mit garantierter Worst-Case-Komplexitaet</li>
+</ul>
+<p>Diese Abgrenzung ist wichtig, weil &quot;DB&quot; sonst zu klassischen Postgres-Erwartungen fuehrt.</p>
 <h2>1) Voraussetzungen</h2>
 <ul>
 <li>MySQL Workbench installiert</li>
@@ -139,6 +154,8 @@
     shop.myco
     clusters.ppm
 </code></pre>
+<h2>1b) Datenvolumen und Komplexitaet (kurz)</h2>
+<p>Speicherkosten skalieren grob mit <code>payload_count</code>, der Grid-Groesse (<code>size * size</code>) und Ergebnis-Buffer groessen (Trefferlisten). <code>--size</code> erhoeht die Grid-Flaeche quadratisch (256 -&gt; 512 = 4x Zellen). Lokale Queries skalieren mit Radius und Cluster-Dichte; <code>--db-radius</code> steuert die Suchflaeche naeherungsweise quadratisch mit dem Radius (doppelt so grosser Radius ~ 4x Flaeche). Worst Case ist ein globaler Scan (z. B. grosser Radius oder Fokus aus).</p>
 <h2>2) SQL-Dump in MySQL Workbench erstellen</h2>
 <ol>
 <li>MySQL Workbench starten.</li>
@@ -178,6 +195,17 @@ Wenn der Dump <code>CREATE TABLE</code> enthaelt, werden Spaltennamen automatisc
 <p>Erwartete Ausgabe:</p>
 <pre><code>ingest_done payloads=&lt;N&gt; tables=&lt;T&gt;
 </code></pre>
+<h2>3a) Reproduzierbare Runs (golden path)</h2>
+<p>Empfohlene Konfiguration fuer reproduzierbare Reports:</p>
+<ul>
+<li>fixer SQL-Dump (gleiche Datei, gleiche Reihenfolge)</li>
+<li>feste Parameter: <code>--seed</code>, <code>--size</code>, <code>--agents</code>, <code>--steps</code></li>
+<li>feste Query-Parameter: <code>--db-radius</code> bzw. <code>radius</code> in der Shell</li>
+<li>falls GPU/OpenCL aktiv ist, koennen numerische Abweichungen auftreten; fuer strikte Replays GPU nicht aktivieren oder toleranzbasiert vergleichen</li>
+</ul>
+<p>Beispiel:</p>
+<pre><code class="language-powershell">.\micro_swarm.exe --mode db_ingest --input C:\path\to\dump.sql --steps 5000 --agents 512 --size 256 --seed 42 --output shop.myco
+</code></pre>
 <h2>4) Cluster-Bild ansehen (optional)</h2>
 <p>Das PPM-Bild zeigt die Tabellen-Cluster. Du kannst es oeffnen mit:</p>
 <pre><code class="language-powershell">start clusters.ppm
@@ -186,6 +214,20 @@ Wenn der Dump <code>CREATE TABLE</code> enthaelt, werden Spaltennamen automatisc
 <h2>5) Interaktive Abfragen in Micro-Swarm (db_shell)</h2>
 <p>Starte die Shell:</p>
 <pre><code class="language-powershell">.\micro_swarm.exe --mode db_shell --db shop.myco --db-radius 5
+</code></pre>
+<p>Shell-Cheat-Sheet (12 Zeilen):</p>
+<pre><code>tables
+schema &lt;table&gt;
+goto &lt;payload_id&gt;
+focus
+radius &lt;N&gt;
+unfocus
+&lt;Table&gt; &lt;PKValue&gt;
+&lt;Table&gt; &lt;col&gt;=&lt;val&gt;
+show &lt;col1,col2,...&gt;
+sql &lt;statement&gt;
+sort &lt;col|index&gt; [asc|desc] [num][, &lt;col|index&gt; [asc|desc] [num] ...]
+format &lt;table|csv|json&gt;
 </code></pre>
 <p>Beispieleingaben:</p>
 <pre><code>Album 1
@@ -206,11 +248,12 @@ sql SELECT TrackId,Name FROM Track WHERE AlbumId=1 ORDER BY TrackId LIMIT 5
 <li><code>goto 1234</code> setzt den Fokus auf Payload ID 1234.</li>
 <li><code>radius 12</code> setzt den Suchradius fuer alle folgenden Anfragen.</li>
 <li><code>tables</code> listet alle Tabellen.</li>
-<li><code>stats</code> zeigt Payload-Counts pro Tabelle.</li>
 <li><code>schema &lt;table&gt;</code> zeigt bekannte Spalten.</li>
 <li><code>show ...</code> filtert die Ausgabe auf Spalten.</li>
 <li><code>&lt;Column&gt;=&lt;Value&gt;</code> ohne Tabellennamen sucht global.</li>
 <li><code>sql &lt;statement&gt;</code> fuehrt SQL-Light aus (Phase 1).</li>
+<li><code>sort &lt;col|index&gt; [asc|desc] [num][, &lt;col|index&gt; [asc|desc] [num] ...]</code> sortiert das letzte SQL-Result oder das letzte Shell-Result.</li>
+<li><code>sort reset</code> stellt das letzte SQL-Result wieder her.</li>
 <li><code>format &lt;table|csv|json&gt;</code> setzt das SQL-Ausgabeformat.</li>
 </ul>
 <p>Solange ein Fokus gesetzt ist, werden alle Suchanfragen lokal um diesen Punkt ausgefuehrt.</p>
@@ -242,6 +285,8 @@ FROM (SELECT ...) als Subquery
 <ul>
 <li>Subqueries koennen aeussere Spalten referenzieren (korreliert).</li>
 <li>CTEs sind <strong>nicht rekursiv</strong>.</li>
+<li>Numerische Literale koennen ohne Quotes genutzt werden (z. B. <code>AlbumId=1</code>).</li>
+<li><code>ORDER BY</code> sortiert numerisch, wenn beide Werte als Zahl parsebar sind.</li>
 </ul>
 <h2>7) Fehlerdiagnose</h2>
 <ul>
