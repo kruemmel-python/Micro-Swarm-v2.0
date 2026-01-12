@@ -1,0 +1,14 @@
+{
+  "default_rules": [
+    { "pattern": ".*_id$", "weight": 1.0, "type": "foreign_key" }
+  ],
+  "table_rules": {
+    "users": [
+      { "column": "nachname", "weight": 0.8, "type": "trait_cluster" },
+      { "column": "stadt", "weight": 0.4, "type": "trait_cluster" }
+    ],
+    "test": [
+      { "column": "e_mail", "weight": 0.9, "type": "domain_cluster" }
+    ]
+  }
+}
