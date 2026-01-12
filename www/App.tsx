@@ -368,7 +368,7 @@ const App: React.FC = () => {
           <li><a href="#kap3" className="hover:text-blue-600 font-medium">Kapitel 3: SQL</a></li>
           <li><a href="#kap4" className="hover:text-blue-600 font-medium">Kapitel 4: Delta-Prinzip</a></li>
           <li><a href="#kap5" className="hover:text-blue-600 font-medium">Kapitel 5: Graph-Konzepte</a></li>
-          <li><a href="#mycodm" className="hover:text-blue-600 font-medium">MycoDM</a></li>
+          <li><a href="#mycodm" className="hover:text-blue-600 font-medium">MycoDB</a></li>
           <li><a href="#benchmark" className="hover:text-blue-600 font-medium">Benchmark & Emergenz</a></li>
           <li><a href="#cmdref" className="hover:text-blue-600 font-medium">Kommando-Referenz</a></li>
           <li><a href="#kap6" className="hover:text-blue-600 font-medium">Kapitel 6: Produktivität</a></li>
@@ -557,9 +557,9 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* MycoDM */}
+        {/* MycoDB */}
         <section id="mycodm" className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 border-b pb-2">MycoDM: The Architecture of Emergence</h2>
+          <h2 className="text-2xl font-bold mb-6 border-b pb-2">MycoDB: The Architecture of Emergence</h2>
           <h3 className="text-xl font-semibold mb-3">MycoDB: Die sich selbst organisierende Datenbank</h3>
 
           <h4 className="text-lg font-semibold mt-6 mb-2">Einleitung: Wenn Daten laufen lernen</h4>
@@ -568,6 +568,11 @@ const App: React.FC = () => {
             schneller werden? Traditionelle RDBMS sind durch ein ungelöstes Kernproblem gefesselt: die Kluft zwischen
             logischer Verwandtschaft und physischer Speicherlokalität.
           </p>
+          <img
+            src="/data/MicroDB.gif"
+            alt="MycoDB Ingest Timelapse"
+            className="w-full max-w-4xl border border-gray-200 rounded-2xl shadow-lg my-6"
+          />
           <p className="text-gray-700 mb-4">
             Logisch zusammengehörige Daten, wie zum Beispiel ein Kunde und seine Bestellungen, sind auf der Festplatte
             oft weit voneinander entfernt gespeichert. Um diese Verbindungen wiederherzustellen, sind rechenintensive

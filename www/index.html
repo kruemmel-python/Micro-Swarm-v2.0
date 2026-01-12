@@ -163,6 +163,16 @@
       margin: 16px 0;
     }
 
+    .mycodb-gif {
+      width: 100%;
+      max-width: 960px;
+      display: block;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 32px rgba(12, 20, 40, 0.14);
+      margin: 16px 0 18px;
+    }
+
     .code-block {
       position: relative;
       margin: 12px 0 18px;
@@ -256,7 +266,7 @@
       <a href="#kap3">Kapitel 3: SQL</a>
       <a href="#kap4">Kapitel 4: Delta-Prinzip</a>
       <a href="#kap5">Kapitel 5: Fokus &amp; Radius</a>
-      <a href="#mycodm">MycoDM</a>
+      <a href="#mycodm">MycoDB</a>
       <a href="#benchmark">Benchmark &amp; Emergenz</a>
       <a href="#kap6">Kapitel 6: Produktivitaet</a>
       <a href="#cmdref">Kommando-Referenz</a>
@@ -531,11 +541,12 @@ radius 5500</code></pre>
       </section>
 
       <section id="mycodm">
-        <h2>MycoDM: The Architecture of Emergence</h2>
+        <h2>MycoDB: The Architecture of Emergence</h2>
         <h3>MycoDB: Die sich selbst organisierende Datenbank</h3>
 
         <h4>Einleitung: Wenn Daten laufen lernen</h4>
         <p>Was waere, wenn eine Datenbank ihre eigenen Daten so organisieren koennte, dass Abfragen intuitiver und schneller werden? Traditionelle RDBMS sind durch ein ungeloestes Kernproblem gefesselt: die Kluft zwischen logischer Verwandtschaft und physischer Speicherlokalitaet.</p>
+        <img class="mycodb-gif" src="/data/MicroDB.gif" alt="MycoDB Ingest Timelapse" />
         <p>Logisch zusammengehoerige Daten, wie zum Beispiel ein Kunde und seine Bestellungen, sind auf der Festplatte oft weit voneinander entfernt gespeichert. Um diese Verbindungen wiederherzustellen, sind rechenintensive JOIN-Operationen notwendig, die das System verlangsamen.</p>
         <p>MycoDB (Mycelium Database) ist ein experimenteller, biologisch inspirierter Ansatz, der dieses Problem nicht durch starre mathematische Indexstrukturen wie B-Trees, sondern durch Emergenz und Selbstorganisation loest. Es ist mehr als nur eine Datenbank; es ist eine innovative Anwendung und der primaere Proof-of-Concept fuer das Micro-Swarm Framework, eine hochperformante C++ Artificial-Life-Engine, die darauf ausgelegt ist, komplexe Probleme durch das Zusammenspiel einfacher, lokaler Regeln zu loesen. Als eingebettete Engine, ausgeliefert als Teil der Micro-Swarm DLL, wendet MycoDB diese Prinzipien an, um eine der klassischsten Herausforderungen der Datenspeicherung zu meistern.</p>
 
