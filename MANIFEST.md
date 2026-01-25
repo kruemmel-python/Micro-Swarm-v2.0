@@ -1,5 +1,3 @@
-# MANIFEST.md
-
 # MycoDB / Micro-Swarm Manifest (v7.0)
 
 Dieses Manifest fasst die Position des Projekts zusammen, fokussiert auf **Warum**
@@ -120,7 +118,7 @@ oder **klarer machen**, nicht wenn sie den Kern verwischen.
 
 ---
 
-## Related Work 
+## Related Work
 
 **Related Work.**
 Stigmergic clustering (z. B. Lumer & Faieta; [LF1994]) demonstriert selbstorganisierte
@@ -172,7 +170,8 @@ bildet eine eigenstaendige, integrierte Klasse.
   pages     = {2628--2637},
   publisher = {IEEE Computer Society Conference Publishing Services (CPS)},
   doi       = {10.1109/WACV57701.2024.00261},
-  isbn      = {979-8-3503-1893-7}
+  isbn      = {979-8-3503-1893-7},
+  note      = {eBook ISBN: 979-8-3503-1892-0}
 }
 ```
 
@@ -202,10 +201,12 @@ bildet eine eigenstaendige, integrierte Klasse.
 
 Quellen-Links (nur zur Verifikation):
 ```text
-https://pubmed.ncbi.nlm.nih.gov/39564075/
-https://pmc.ncbi.nlm.nih.gov/articles/PMC11573557/
+https://mitpress.mit.edu/9780262531221/from-animals-to-animats-3/
 https://link.springer.com/article/10.1186/s40537-025-01311-6
+https://publica.fraunhofer.de/entities/mainwork/a48cee3f-73c5-42c7-9581-68ad9cf7ea07
+https://www.proceedings.com/content/074/074075webtoc.pdf
 https://openaccess.thecvf.com/content/WACV2024/html/Sinha_Hardware_Aware_Evolutionary_Neural_Architecture_Search_Using_Representation_Similarity_Metric_WACV_2024_paper.html
+https://www.frontiersin.org/journals/big-data/articles/10.3389/fdata.2024.1448481/full
 ```
 
 ## Positionspapier (Warum es existiert, nicht wie)
@@ -258,5 +259,4 @@ Die Datenbank wird zum Organismus; der Organismus bleibt abfragbar.
 - `src/sim/agent.cpp`
 - `src/sim/mycel.cpp`
 - `src/compute/opencl_runtime.cpp`
-
 
