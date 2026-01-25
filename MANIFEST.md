@@ -10,6 +10,16 @@ Hinweis: Umlaute wurden in ASCII geschrieben (ae/oe/ue).
 
 ---
 
+## Glossar (Kurzdefinitionen)
+
+- **Silicon Subjectivity:** Hardware-Feedback (OpenCL-Exhaustion) wirkt ueber das Gamma-Feld auf die Dynamik.
+- **Toxic Codons:** Absichtliche Nutzung von Bank-Conflicts/Atomics in evolvierten OpenCL-Kernen.
+- **Inkulturation:** Daten werden raeumlich geclustert statt klassisch indiziert.
+- **Semiotische Autonomie:** Signal-Bedeutungen entstehen ueber evolvierbare Response/Emission-Matrizen.
+- **Informations-Thermodynamik:** Kognitive Last kostet Agenten-Energie.
+
+---
+
 ## These
 
 Es gibt derzeit **kein zweites Projekt**, das MycoDB/Micro-Swarm in seiner
@@ -132,8 +142,8 @@ bildet eine eigenstaendige, integrierte Klasse.
 
 | Work | Cite Key | DOI / Quelle |
 | :--- | :--- | :--- |
-| Diversity and adaptation in populations of clustering ants | [LF1994] | DOI: n/a (MIT Press proceedings) |
-| Hardware Aware Evolutionary NAS (HW-EvRSNAS) | [Sinha2024] | DOI: 10.1109/WACV57701.2024.00261 |
+| Diversity and adaptation in populations of clustering ants | [LF1994] | ISBN: 9780262531221 (MIT Press proceedings) |
+| Hardware Aware Evolutionary NAS (HW-EvRSNAS) | [Sinha2024] | DOI: 10.1109/WACV57701.2024.00261; ISBN: 979-8-3503-1893-7 (print), 979-8-3503-1892-0 (eBook) |
 | Terramycelium (J. Big Data, 2025) | [Ataei2025] | DOI: 10.1186/s40537-025-01311-6 |
 | Cybermycelium (Front. Big Data, 2024) | [Ataei2024] | DOI: 10.3389/fdata.2024.1448481 |
 
@@ -148,7 +158,8 @@ bildet eine eigenstaendige, integrierte Klasse.
   booktitle = {Proceedings of the Third International Conference on Simulation of Adaptive Behavior: From Animals to Animats},
   year      = {1994},
   pages     = {499--508},
-  publisher = {MIT Press}
+  publisher = {MIT Press},
+  isbn      = {9780262531221}
 }
 ```
 
@@ -159,7 +170,9 @@ bildet eine eigenstaendige, integrierte Klasse.
   booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
   year      = {2024},
   pages     = {2628--2637},
-  doi       = {10.1109/WACV57701.2024.00261}
+  publisher = {IEEE Computer Society Conference Publishing Services (CPS)},
+  doi       = {10.1109/WACV57701.2024.00261},
+  isbn      = {979-8-3503-1893-7}
 }
 ```
 
