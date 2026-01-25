@@ -1,3 +1,9 @@
+
+
+<img width="1045" height="507" alt="msd" src="https://github.com/user-attachments/assets/ad9e96ce-0c49-4746-bda2-6540cab2b957" />
+
+
+
 # MycoDB / Micro-Swarm Manifest (v7.0)
 
 Dieses Manifest fasst die Position des Projekts zusammen, fokussiert auf **Warum**
@@ -259,4 +265,5 @@ Die Datenbank wird zum Organismus; der Organismus bleibt abfragbar.
 - `src/sim/agent.cpp`
 - `src/sim/mycel.cpp`
 - `src/compute/opencl_runtime.cpp`
+
 
